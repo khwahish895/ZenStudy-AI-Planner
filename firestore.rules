@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'onboardingComplete'])
+        && data.uid == request.auth.uid
+        && data.onboardingComplete is bool
+        && (data.get('availableHoursPerDay', 0) is number)
+        && data.keys().size() <= 10; // Prevent shadow fields
+    }
+
+    function isValidSubject(data) {
+      return data.keys().hasAll(['userId', 'name', 'difficulty'])
+        && data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.difficulty in ['easy', 'medium', 'hard']
+        && (data.get('color', '') is string);
+    }
+
+    function isValidTopic(data) {
+      return data.keys().hasAll(['userId', 'subjectId', 'title', 'status'])
+        && data.userId == request.auth.uid
+        && data.subjectId is string
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.status in ['todo', 'working', 'done']
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/subjects/$(data.subjectId));
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['userId', 'startTime', 'endTime', 'type'])
+        && data.userId == request.auth.uid
+        && data.startTime is timestamp && data.endTime is timestamp
+        && data.startTime < data.endTime
+        && (data.endTime.toMillis() - data.startTime.toMillis()) <= 43200000 // Max 12 hours
+        && data.type in ['study', 'revision', 'break']
+        && (data.get('subjectId', null) == null || exists(/databases/$(database)/documents/users/$(request.auth.uid)/subjects/$(data.subjectId)));
+    }
+
+    // --- Routes ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming())
+        && incoming().uid == existing().uid; // Immutable UID
+
+      match /subjects/{subjectId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSubject(incoming());
+        allow delete: if isOwner(userId);
+        allow update: if isOwner(userId) && isValidSubject(incoming())
+          && incoming().userId == existing().userId;
+      }
+
+      match /topics/{topicId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTopic(incoming());
+        allow delete: if isOwner(userId);
+        allow update: if isOwner(userId) && isValidTopic(incoming())
+          && incoming().userId == existing().userId;
+      }
+
+      match /sessions/{sessionId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSession(incoming());
+        allow delete: if isOwner(userId);
+        allow update: if isOwner(userId) && isValidSession(incoming())
+          && incoming().userId == existing().userId;
+      }
+    }
+  }
+}

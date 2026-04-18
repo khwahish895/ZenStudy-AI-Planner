@@ -1,0 +1,6 @@
+{
+  "name": "ZenStudy AI Planner",
+  "description": "An adaptive, AI-powered study planner that intelligently generates schedules, tracks progress, and adjusts to your learning habits using the Gemini API and Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

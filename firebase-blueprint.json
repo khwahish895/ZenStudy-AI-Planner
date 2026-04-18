@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User preferences and global study stats",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "studyGoal": { "type": "string", "description": "e.g., Exam in 20 days" },
+        "availableHoursPerDay": { "type": "number" },
+        "onboardingComplete": { "type": "boolean" },
+        "streak": { "type": "integer" },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "onboardingComplete"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "A subject the user is studying",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+        "color": { "type": "string" }
+      },
+      "required": ["userId", "name", "difficulty"]
+    },
+    "Topic": {
+      "title": "Topic",
+      "description": "A specific sub-topic within a subject",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "working", "done"] },
+        "order": { "type": "number" }
+      },
+      "required": ["userId", "subjectId", "title", "status"]
+    },
+    "StudySession": {
+      "title": "Study Session",
+      "description": "A timed block in the timetable",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "topicId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["study", "revision", "break"] },
+        "completed": { "type": "boolean" },
+        "missed": { "type": "boolean" }
+      },
+      "required": ["userId", "startTime", "endTime", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/users/{userId}/subjects/{subjectId}": {
+      "schema": "Subject",
+      "description": "Subjects tracked by the user"
+    },
+    "/users/{userId}/topics/{topicId}": {
+      "schema": "Topic",
+      "description": "Topics within subjects"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "StudySession",
+      "description": "Generated timetable sessions"
+    }
+  }
+}
